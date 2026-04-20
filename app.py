@@ -7,88 +7,90 @@ ui.inject_stitch_style()
 
 # 2. 初始化全局状态
 if 'page' not in st.session_state:
-    st.session_state.page = "Onboarding"
+    st.session_state.page = "Register"
+if 'user_email' not in st.session_state:
+    st.session_state.user_email = ""
+if 'chosen_pet' not in st.session_state:
+    st.session_state.chosen_pet = None
+if 'friends' not in st.session_state:
+    st.session_state.friends = [] # 存储好友对象: {"email": "", "energy": 80}
 if 'energy' not in st.session_state:
-    st.session_state.energy = 85  # 初始电量
-if 'history' not in st.session_state:
-    st.session_state.history = []
+    st.session_state.energy = 85
 
-# --- 页面路由 ---
+# --- 页面路由逻辑 ---
 
-# A. Onboarding 欢迎页
-if st.session_state.page == "Onboarding":
-    ui.render_stitch_component(ui.get_onboarding_ui(), height=600)
-    if st.button("Begin Journey ✨", use_container_width=True):
-        st.session_state.page = "Dashboard"
-        st.rerun()
-
-# B. Dashboard 主页
-elif st.session_state.page == "Dashboard":
-    ui.render_header("Guardian Sanctuary")
-    ui.render_stitch_component(ui.get_dashboard_ui(st.session_state.energy), height=400)
-    
-    col1, col2 = st.columns(2)
-    with col1:
-        if st.button("📈 Log Activity", use_container_width=True):
-            st.session_state.page = "Log"
+# 页面 1: 注册
+if st.session_state.page == "Register":
+    ui.render_stitch_component(ui.get_register_ui(), height=450)
+    email = st.text_input("Enter your email to join", placeholder="example@bank.com")
+    if st.button("Continue", use_container_width=True):
+        if "@" in email:
+            st.session_state.user_email = email
+            st.session_state.page = "ChoosePet"
             st.rerun()
-    with col2:
-        if st.button("🔄 Social Sync", use_container_width=True):
-            st.session_state.page = "Sync"
-            st.rerun()
+        else:
+            st.error("Please enter a valid email.")
 
-# C. Log 记录页 (双向输入核心)
-elif st.session_state.page == "Log":
-    ui.render_header("Energy Log")
+# 页面 2: 选择宠物
+elif st.session_state.page == "ChoosePet":
+    ui.render_header("Choose Your Guardian")
+    ui.render_stitch_component(ui.get_pet_selection_ui(), height=300)
     
-    st.markdown('<div class="glass-card" style="padding:1rem; margin-bottom:1.5rem; background:rgba(255,255,255,0.4); border-radius:2rem;">', unsafe_allow_html=True)
-    
-    # 使用 Form 确保提交时统一处理数据
-    with st.form("energy_entry_form", clear_on_submit=True):
-        event_name = st.text_input("What happened?", placeholder="Lunch with team, Meditation...")
-        
-        st.write("Energy Impact (-100 to 100)")
-        
-        # 联动逻辑：滑动条与数字框
-        col_slider, col_input = st.columns([3, 1])
-        with col_slider:
-            val_slider = st.slider("Adjust Impact", -100, 100, 0, label_visibility="collapsed")
-        with col_input:
-            val_num = st.number_input("Value", -100, 100, value=val_slider, label_visibility="collapsed")
-            
-        # 确定最终数值
-        final_val = val_num if val_num != val_slider else val_slider
-        
-        submit = st.form_submit_button("Record Entry ✨", use_container_width=True)
-        
-        if submit and event_name:
-            # 更新电量（限制在 0-100）
-            st.session_state.energy = max(0, min(100, st.session_state.energy + final_val))
-            # 记录历史
-            st.session_state.history.insert(0, {"name": event_name, "val": final_val})
-            st.toast(f"Logged: {event_name}")
+    col1, col2, col3 = st.columns(3)
+    with col1: 
+        if st.button("Cat 😺"): 
+            st.session_state.chosen_pet = "Cat"; st.session_state.page = "Dashboard"; st.rerun()
+    with col2: 
+        if st.button("Dog 🐶"): 
+            st.session_state.chosen_pet = "Dog"; st.session_state.page = "Dashboard"; st.rerun()
+    with col3: 
+        if st.button("Bunny 🐰"): 
+            st.session_state.chosen_pet = "Bunny"; st.session_state.page = "Dashboard"; st.rerun()
+
+# 页面 3: 主系统 (带底部导航栏)
+else:
+    # 顶部导航 (可选)
+    ui.render_header(f"{st.session_state.page}")
+
+    # A. 首页
+    if st.session_state.page == "Dashboard":
+        ui.render_stitch_component(ui.get_dashboard_ui(st.session_state.energy, st.session_state.chosen_pet), height=400)
+        # 日志记录按钮放在首页底部，方便操作
+        if st.button("➕ Log New Activity", use_container_width=True):
+            st.session_state.page = "Log" # 虽然不在底部导航，但作为主要操作保留
             st.rerun()
 
-    st.markdown('</div>', unsafe_allow_html=True)
+    # B. 日历页 (Insights)
+    elif st.session_state.page == "Calendar":
+        ui.render_stitch_component(ui.get_energy_log_ui(), height=650)
 
-    # 显示历史
-    st.markdown("### Recent Activities")
-    for item in st.session_state.history[:5]:
-        color = "red-500" if item['val'] < 0 else "emerald-600"
-        symbol = "trending_down" if item['val'] < 0 else "trending_up"
-        log_html = f'''
-        <div class="flex items-center justify-between bg-white/40 p-4 rounded-3xl mb-2 border border-white/10">
-            <div class="flex items-center gap-3">
-                <span class="material-symbols-outlined text-{color}">{symbol}</span>
-                <span class="font-bold text-[#2b3433]">{item['name']}</span>
-            </div>
-            <span class="font-black text-{color}">{item['val']}%</span>
-        </div>
-        '''
-        ui.render_stitch_component(log_html, height=80)
+    # C. 社交同步页 (好友列表)
+    elif st.session_state.page == "SocialSync":
+        if not st.session_state.friends:
+            ui.render_stitch_component(ui.get_empty_sync_ui(), height=300)
+        else:
+            for friend in st.session_state.friends:
+                ui.render_stitch_component(ui.get_friend_card_ui(friend['email'], friend['energy']), height=100)
+        
+        # 添加好友功能
+        with st.expander("➕ Add Friend"):
+            f_email = st.text_input("Friend's Email")
+            if st.button("Send Request"):
+                st.session_state.friends.append({"email": f_email, "energy": 75})
+                st.success("Friend added!")
+                st.rerun()
+    
+    # D. 临时 Log 页 (记录能量)
+    elif st.session_state.page == "Log":
+        # (此处保留你之前的 -100 到 100 的双向输入逻辑)
+        if st.button("← Back"): st.session_state.page = "Dashboard"; st.rerun()
 
-    if st.button("← Back Home", use_container_width=True):
-        st.session_state.page = "Dashboard"
-        st.rerun()
-
-ui.render_bottom_nav()
+    # 固定底部工具栏
+    st.markdown("---")
+    nav_col1, nav_col2, nav_col3 = st.columns(3)
+    with nav_col1:
+        if st.button("🏠 Home"): st.session_state.page = "Dashboard"; st.rerun()
+    with nav_col2:
+        if st.button("📅 Calendar"): st.session_state.page = "Calendar"; st.rerun()
+    with nav_col3:
+        if st.button("👥 Sync"): st.session_state.page = "SocialSync"; st.rerun()
